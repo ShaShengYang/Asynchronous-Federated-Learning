@@ -1,0 +1,10 @@
+datasets/*
+!datasets/process_dataset.py
+.idea/
+.vscode/
+__pycache__/
+block_chain.py
+logs/asynchronous/*
+!logs/asynchronous/.gitkeep
+logs/synchronous/*
+!logs/synchronous/.gitkeep

@@ -1,4 +1,4 @@
-import time
+import copy
 import queue
 import settings
 import model
@@ -30,11 +30,9 @@ class Client:
         while True:
             self.__set_weights(self.weights)
             self.__update_weights()  # 训练并更新权重
-            self.printer.output_queue.put(
-                f"Client {self.client_id}: Updated weights and sent to Server"
-            )
-            # 向服务器发送权重 上一次接收权重时服务器的轮次
-            self.server.receive_data(self, (self.weights, self.server_time))
+            self.printer.output_queue.put(f"Client {self.client_id}: Updated weights and sent to Server")
+            # 向服务器发送权重 上一次接收权重时服务器的轮次 deepcopy一下防止出现问题
+            self.server.receive_data(self, (copy.deepcopy(self.weights), self.server_time))
             with self.server.condition:
                 if self.server.data_queue.qsize() == len(self.server.clients):
                     self.server.condition.notify()
@@ -46,9 +44,7 @@ class Client:
             else:
                 self.weights = response[0]
                 self.server_time = response[1]
-            self.printer.output_queue.put(
-                f"Client {self.client_id}: got new weights from Server"
-            )
+            self.printer.output_queue.put(f"Client {self.client_id}: got new weights from Server")
 
         self.printer.output_queue.put(f"Client {self.client_id}: Stopping")
 
@@ -58,7 +54,7 @@ class Client:
         self.loss_function.to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
         response = self.response_queue.get()
-        self.weights = response[0]
+        self.weights = response[0]  # 收到的是经过deepcopy后的 随便用 不会出问题
         self.server_time = response[1]
 
     def __set_model(self):

@@ -31,7 +31,7 @@ class Server:
                 # 从用户接收权重
                 client, client_weights = self.data_queue.get()
                 # 更新权重
-                self.__update_weights_asynchronously(client_weights[0], epoch, client_weights[1])
+                self.__update_weights_asynchronously(client_weights[0], epoch, client_weights[1])  # 0是权重 1是tau
                 torch.save(self.weights, f"./logs/asynchronous/{epoch + 1}.pth")
                 self.printer.output_queue.put(f"Server: Data updated from {client.client_id}, epoch: {epoch + 1}")
                 # 将更新好的权重发给客户端 元组 权重 当前轮次
@@ -45,7 +45,7 @@ class Server:
                 with self.condition:
                     self.condition.wait_for(lambda: self.data_queue.qsize() == len(clients))
 
-                # 列表每个元素是client_weight
+                # 列表每个元素是client_weight 每次get的是(client, (self.weights, self.server_time))
                 weights_list = [self.data_queue.get()[1][0] for _ in range(len(clients))]
                 self.__update_weights_synchronously(weights_list)
                 torch.save(self.weights, f"./logs/synchronous/{epoch + 1}.pth")
@@ -102,7 +102,8 @@ class Server:
         self.weights = new_weights
 
     def __send_weights_to_client(self, client, epoch):
-        client.response_queue.put((self.weights, epoch))
+        # 权重deepcopy一下再发送 避免发生问题
+        client.response_queue.put((copy.deepcopy(self.weights), epoch))
 
     def __pre_treat(self):
         self.__setup_model()
@@ -116,7 +117,7 @@ class Printer:
         self.output_queue = queue.Queue()
 
     def run(self):
-        print("######################################################")
+        print("#" * 50)
         while True:
             info = self.output_queue.get()
             if info == "STOP":

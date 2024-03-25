@@ -74,6 +74,7 @@ def main():
         thread.join()
     printer.output_queue.put("STOP")
     printer_thread.join()
+    evaluate_accuracy()
 
 
 if __name__ == "__main__":

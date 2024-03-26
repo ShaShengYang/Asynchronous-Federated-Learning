@@ -98,8 +98,8 @@ class Client:
                 temp_list = outputs.argmax(1) == labels
                 temp_true_count = temp_list.sum().item()
                 true_count += temp_true_count
-        test_accuracy = true_count / len(self.test_dataset)
+        test_accuracy = true_count / len(self.test_dataset) * 100
 
         self.printer.output_queue.put(
-            f"Client {self.client_id} has finished train, accuracy is {test_accuracy}, total loss is {test_loss}"
+            f"Client {self.client_id} has finished train, accuracy is {test_accuracy}%, total loss is {test_loss}"
         )

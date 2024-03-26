@@ -14,11 +14,28 @@ def evaluate_accuracy():
     loss_fn = torch.nn.CrossEntropyLoss()
     loss_fn.to(device)
     apply_transform = transforms.ToTensor()
-    test_dataset = datasets.MNIST("./datasets/dataset_mnist", train=False, transform=apply_transform, download=True, )
+    if settings.DATASET == "cifar":
+        test_dataset = datasets.CIFAR10("./datasets/dataset_cifar10", train=False, download=True,
+                                        transform=apply_transform)
+    elif settings.DATASET == 'mnist':
+        test_dataset = datasets.MNIST("./datasets/dataset_mnist", train=False, transform=apply_transform,
+                                      download=True, )
+
     test_dataloader = data.DataLoader(test_dataset, 64)
-    test_model = model.VggMnist()
+
+    if settings.MODEL == "resnet_cifar":
+        test_model = model.ResNet18()
+    elif settings.MODEL == "vgg_cifar":
+        test_model = model.VggCifar()
+    elif settings.MODEL == "vgg_mnist":
+        test_model = model.VggMnist()
+
     test_model.to(device)
-    test_model.load_state_dict(torch.load(f"./logs/synchronous/{settings.UPDATE_TIMES}.pth"))
+    if settings.ASYNCHRONOUS == False:
+        test_model.load_state_dict(torch.load(f"./logs/synchronous/{settings.UPDATE_TIMES}.pth"))
+    else:
+        test_model.load_state_dict(torch.load(f"./logs/asynchronous/{settings.UPDATE_TIMES}.pth"))
+
     test_loss = 0
     true_count = 0
     with torch.no_grad():
@@ -31,9 +48,8 @@ def evaluate_accuracy():
             temp_list = outputs.argmax(1) == labels
             temp_true_count = temp_list.sum().item()
             true_count += temp_true_count
-            test_accuracy = true_count / len(test_dataset)
-    print(f"After {settings.UPDATE_TIMES} times aggregation, model's accuracy is {test_accuracy}")
-
+            test_accuracy = true_count / len(test_dataset) * 100
+    print(f"After {settings.UPDATE_TIMES} times aggregation, model's accuracy is {test_accuracy}%")
 
 def main():
     clients = []  # 用户列表 每个元素为Client类的实例
@@ -58,6 +74,7 @@ def main():
         thread.join()
     printer.output_queue.put("STOP")
     printer_thread.join()
+    evaluate_accuracy()
 
 
 if __name__ == "__main__":

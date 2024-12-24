@@ -86,20 +86,21 @@ class Client:
             self.optimizer.step()
         self.weights = self.model.state_dict()
 
-        test_loss = 0
-        true_count = 0
-        with torch.no_grad():
-            for features, labels in test_dataloader:
-                features = features.to(self.device)
-                labels = labels.to(self.device)
-                outputs = self.model.forward(features)
-                loss = self.loss_function(outputs, labels)
-                test_loss += loss.item()
-                temp_list = outputs.argmax(1) == labels
-                temp_true_count = temp_list.sum().item()
-                true_count += temp_true_count
-        test_accuracy = true_count / len(self.test_dataset) * 100
+        if settings.CLIENTS_TEST:
+            test_loss = 0
+            true_count = 0
+            total_samples = 0
+            with torch.no_grad():
+                for features, labels in test_dataloader:
+                    features = features.to(self.device)
+                    labels = labels.to(self.device)
+                    outputs = self.model.forward(features)
+                    loss = self.loss_function(outputs, labels)
+                    test_loss += loss.item()
+                    _, predicted = torch.max(outputs.data, 1)
+                    true_count += (predicted == labels).sum().item()
+                    total_samples += labels.size(0)
+            test_accuracy = true_count / total_samples
 
-        self.printer.output_queue.put(
-            f"Client {self.client_id} has finished train, accuracy is {test_accuracy}%, total loss is {test_loss}"
-        )
+            self.printer.output_queue.put(
+                f"Client {self.client_id} has finished train, accuracy is {test_accuracy}%, total loss is {test_loss}")

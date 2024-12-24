@@ -1,11 +1,5 @@
-import copy
+import model
 
-
-class Cat:
-    def __init__(self):
-        self.name = 'tom'
-
-
-c0 = Cat()
-print(c0)
-print(copy.deepcopy(c0))
+n = model.ResNet18()
+total = sum(p.numel() for p in n.parameters())
+print(f'Total parameters:{total / 1e6}')

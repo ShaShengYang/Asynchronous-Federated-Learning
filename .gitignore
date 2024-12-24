@@ -1,5 +1,8 @@
 datasets/*
 !datasets/process_dataset.py
+!datasets/data_utils.py.py
+!datasets/dataset_utils.py
+!datasets/DataNoniid.py
 .idea/
 .vscode/
 __pycache__/
@@ -8,3 +11,8 @@ logs/asynchronous/*
 !logs/asynchronous/.gitkeep
 logs/synchronous/*
 !logs/synchronous/.gitkeep
+logs/acc/*
+!logs/acc/.gitkeep
+logs/loss/*
+!logs/loss/.gitkeep
+plot/

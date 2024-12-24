@@ -30,13 +30,16 @@ class Server:
             while epoch < self.update_times:
                 # 从用户接收权重
                 client, client_weights = self.data_queue.get()
+
+                epoch += 1
+
                 # 更新权重
                 self.__update_weights_asynchronously(client_weights[0], epoch, client_weights[1])  # 0是权重 1是tau
-                torch.save(self.weights, f"./logs/asynchronous/{epoch + 1}.pth")
-                self.printer.output_queue.put(f"Server: Data updated from {client.client_id}, epoch: {epoch + 1}")
+                torch.save(self.weights, f"./logs/asynchronous/{epoch}.pth")
+                self.printer.output_queue.put(f"Server: Data updated from {client.client_id}, epoch: {epoch}")
                 # 将更新好的权重发给客户端 元组 权重 当前轮次
                 self.__send_weights_to_client(client, epoch)
-                epoch += 1
+
         else:
             self.printer.output_queue.put("Server: Starting in synchronous way")
 
@@ -47,13 +50,15 @@ class Server:
 
                 # 列表每个元素是client_weight 每次get的是(client, (self.weights, self.server_time))
                 weights_list = [self.data_queue.get()[1][0] for _ in range(len(clients))]
+
+                epoch += 1
+
                 self.__update_weights_synchronously(weights_list)
-                torch.save(self.weights, f"./logs/synchronous/{epoch + 1}.pth")
-                self.printer.output_queue.put(f"Server: Data updated, epoch: {epoch + 1}")
+                torch.save(self.weights, f"./logs/synchronous/{epoch}.pth")
+                self.printer.output_queue.put(f"Server: Data updated, epoch: {epoch}")
                 # 给每个用户发更新后的权重
                 for client in self.clients:
                     self.__send_weights_to_client(client, epoch)
-                epoch += 1
 
         # 停止并且给用户发停止信号
         for client in self.clients:

@@ -1,5 +1,5 @@
 import threading
-from torchvision import transforms, datasets
+import numpy as np
 import torch
 from torch.utils import data
 from server import Server, Printer
@@ -9,35 +9,25 @@ import model
 import settings
 
 
-def evaluate_accuracy():
+def evaluate_accuracy(epoch, accuracy_list, loss_list, test_dataset):
     device = torch.device("cuda:0")
     loss_fn = torch.nn.CrossEntropyLoss()
     loss_fn.to(device)
-    apply_transform = transforms.ToTensor()
-    if settings.DATASET == "cifar":
-        test_dataset = datasets.CIFAR10("./datasets/dataset_cifar10", train=False, download=True,
-                                        transform=apply_transform)
-    elif settings.DATASET == 'mnist':
-        test_dataset = datasets.MNIST("./datasets/dataset_mnist", train=False, transform=apply_transform,
-                                      download=True, )
-
-    test_dataloader = data.DataLoader(test_dataset, 64)
-
-    if settings.MODEL == "resnet_cifar":
+    test_dataloader = data.DataLoader(test_dataset, settings.BATCH_SIZE, drop_last=True)
+    if settings.MODEL == 'resnet_cifar':
         test_model = model.ResNet18()
-    elif settings.MODEL == "vgg_cifar":
+    elif settings.MODEL == 'vgg_cifar':
         test_model = model.VggCifar()
-    elif settings.MODEL == "vgg_mnist":
-        test_model = model.VggMnist()
-
-    test_model.to(device)
-    if settings.ASYNCHRONOUS == False:
-        test_model.load_state_dict(torch.load(f"./logs/synchronous/{settings.UPDATE_TIMES}.pth"))
     else:
-        test_model.load_state_dict(torch.load(f"./logs/asynchronous/{settings.UPDATE_TIMES}.pth"))
-
+        test_model = model.VggMnist()
+    test_model.to(device)
+    if settings.ASYNCHRONOUS:
+        test_model.load_state_dict(torch.load(f"./logs/asynchronous/{epoch}.pth"))
+    else:
+        test_model.load_state_dict(torch.load(f"./logs/synchronous/{epoch}.pth"))
     test_loss = 0
-    true_count = 0
+    correct_count = 0
+    total_samples = 0
     with torch.no_grad():
         for features, labels in test_dataloader:
             features = features.to(device)
@@ -45,11 +35,15 @@ def evaluate_accuracy():
             outputs = test_model.forward(features)
             loss = loss_fn(outputs, labels)
             test_loss += loss.item()
-            temp_list = outputs.argmax(1) == labels
-            temp_true_count = temp_list.sum().item()
-            true_count += temp_true_count
-            test_accuracy = true_count / len(test_dataset) * 100
-    print(f"After {settings.UPDATE_TIMES} times aggregation, model's accuracy is {test_accuracy}%")
+            _, predicted = torch.max(outputs.data, 1)
+            correct_count += (predicted == labels).sum().item()
+            total_samples += labels.size(0)
+    test_accuracy = correct_count / total_samples
+    if epoch == settings.UPDATE_TIMES:
+        print(f"After {epoch} times aggregation, model's accuracy is {test_accuracy}")
+    accuracy_list.append(test_accuracy)
+    loss_list.append(test_loss)
+
 
 def main():
     clients = []  # 用户列表 每个元素为Client类的实例
@@ -74,8 +68,20 @@ def main():
         thread.join()
     printer.output_queue.put("STOP")
     printer_thread.join()
-    evaluate_accuracy()
 
 
 if __name__ == "__main__":
     main()
+    experiment_name = "asyn"
+    test_data = process_dataset.set_test_dataset()
+    accuracies = []
+    losses = []
+    if settings.ASYNCHRONOUS:
+        for j in range(settings.NUM_CLIENTS, settings.UPDATE_TIMES + 1, settings.NUM_CLIENTS):
+            evaluate_accuracy(j, accuracies, losses, test_data)
+            print(j)
+    else:
+        for j in range(1, settings.UPDATE_TIMES + 1):
+            evaluate_accuracy(j, accuracies, losses, test_data)
+    np.save(f'./logs/acc/accuracy_array_{experiment_name}_{settings.ALPHA_NONIID}.npy', accuracies)
+    np.save(f'./logs/loss/loss_array_{experiment_name}_{settings.ALPHA_NONIID}.npy', losses)
